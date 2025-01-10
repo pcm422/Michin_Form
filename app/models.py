@@ -1,14 +1,16 @@
+# 설문조사 페이지를 만들어보자 !
+
 from datetime import datetime
-from enum import Enum
+from enum import Enum  # 열거형정의하는 모듈
 from zoneinfo import ZoneInfo
 
-from config import db
+from config import db 
 
-KST = ZoneInfo("Asia/Seoul")
+KST = ZoneInfo("Asia/Seoul") # 서울 지역의 표준시
 
-class BaseModel(db.Model):
+class BaseModel(db.Model): # 모든 모델에 공통컬럼을 정의하는 기본 모델 클래스
     __abstract__ = True
-    id = db.Column(db.Integer, primary_key=True)
+    id = db.Column(db.Integer, primary_key=True) 
     created_at = db.Column(
         db.DateTime, default=lambda: datetime.now(tz=KST), nullable=False
     )
@@ -17,7 +19,7 @@ class BaseModel(db.Model):
         onupdate=lambda: datetime.now(tz=KST), nullable=False
     )
 
-class AgeStatus(Enum):
+class AgeStatus(Enum): # 연령대
     teen = "teen"
     twenty = "twenty"
     thirty = "thirty"
@@ -25,17 +27,17 @@ class AgeStatus(Enum):
     fifty = "fifty"
 
 
-class GenderStatus(Enum):
+class GenderStatus(Enum): # 성별
     male = "male"
     female = "female"
 
 
-class ImageStatus(Enum):
+class ImageStatus(Enum): # 이미지 
     main = "main"
     sub = "sub"
 
 
-class User(BaseModel):
+class User(BaseModel): # 사용자
     __tablename__ = "users"
     name = db.Column(db.String(10), nullable=False)
     age = db.Column(db.Enum(AgeStatus), nullable=False)
