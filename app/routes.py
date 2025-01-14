@@ -64,10 +64,12 @@ def get_question(question_id):
 
     # 순서를 맞추기 위해 딕셔너리 순서대로 배치
     response_data = {
-        'id': question.id,
-        'title': question.title,
-        'image': question.image.url if question.image else None,  # 이미지가 있을 때만 URL 반환
-        'choices': filtered_choices
+        'question' : {
+            'id': question.id,
+            'title': question.title,
+            'image': {'url': question.image.url if question.image else None},  # 이미지가 있을 때만 URL 반환
+            'choices': filtered_choices
+        }
     }
 
     return jsonify(response_data), 200
@@ -177,7 +179,7 @@ answers_bp = Blueprint('answers', __name__)
 
 # 답변 생성 API
 @answers_bp.route('/answers', methods=['POST'])
-def create_answer():
+def create_answers():
     data = request.get_json()
     new_answer = create_answer(data['user_id'], data['choice_id'])
     return jsonify(new_answer.to_dict()), 201
@@ -185,33 +187,36 @@ def create_answer():
 # 답변 제출 API
 @questions_bp.route('/submit', methods=['POST'])
 def submit_answers():
-    data = request.json  # 요청 바디 데이터 받기
-    
-    if not data or not isinstance(data, list):
-        return jsonify({'error': '유효하지 않은 데이터 형식입니다.'}), 400
+    try:
+        data = request.json  # 요청 데이터 받기
+        if not data or not isinstance(data, list):
+            return jsonify({'error': '유효하지 않은 데이터 형식입니다.'}), 400
 
-    for item in data:
-        user_id = item.get('userId')
-        choice_id = item.get('choiceId')
-        
-        if not user_id or not choice_id:
-            return jsonify({'error': 'userId와 choiceId는 필수입니다.'}), 400
-        
-        # 유저와 선택지 조회
-        user = get_user_by_id(user_id)
-        choice = get_choice_by_id(choice_id)
-        
-        if not user:
-            return jsonify({'error': f'User ID {user_id}를 찾을 수 없습니다.'}), 404
-        if not choice:
-            return jsonify({'error': f'Choice ID {choice_id}를 찾을 수 없습니다.'}), 404
-        
-        # 답변 저장 함수 호출
-        create_answer(user_id, choice_id)
+        for item in data:
+            # userId와 choiceId를 정수로 변환
+            user_id = int(item.get('userId'))
+            choice_id = int(item.get('choiceId'))
 
-    return jsonify({
-        'message': f"User: {user_id}'s answers Success Create"
-    }), 201
+            if not user_id or not choice_id:
+                return jsonify({'error': 'userId와 choiceId는 필수입니다.'}), 400
+
+            # 유저와 선택지 조회
+            user = get_user_by_id(user_id)
+            choice = get_choice_by_id(choice_id)
+
+            if not user:
+                return jsonify({'error': f'User ID {user_id}를 찾을 수 없습니다.'}), 404
+            if not choice:
+                return jsonify({'error': f'Choice ID {choice_id}를 찾을 수 없습니다.'}), 404
+
+            # 답변 저장
+            create_answer(user_id, choice_id)
+
+        return jsonify({'message': '답변 저장 성공'}), 201
+
+    except Exception as e:
+        print("Error occurred:", str(e))  # 에러 메시지 출력
+        return jsonify({'error': '서버 내부 오류 발생'}), 500
 
 """ 관리자 기능은 일단 모양만 갖춰놓음
 # 관리자 관련 블루프린트
