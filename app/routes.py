@@ -45,7 +45,7 @@ def signup():
 questions_bp = Blueprint('Questions', 'questions')
 
 # 특정 질문 조회 API
-@questions_bp.route('/questions/<int:question_id>', methods=['GET'])
+@questions_bp.route('/question/<int:question_id>', methods=['GET'])
 def get_question(question_id):
     # 질문 가져오기
     question = get_question_by_id(question_id)
@@ -73,7 +73,7 @@ def get_question(question_id):
     return jsonify(response_data), 200
 
 # 질문 갯수 구하는 API
-@questions_bp.route('/questions/count', methods=['GET'])
+@questions_bp.route('/question/count', methods=['GET'])
 def get_question_count():
     count = get_questions_count()
     return jsonify({'total': count}), 200
