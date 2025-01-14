@@ -73,7 +73,7 @@ def get_question(question_id):
     return jsonify(response_data), 200
 
 # 질문 갯수 구하는 API
-@questions_bp.route('/question/count', methods=['GET'])
+@questions_bp.route('/questions/count', methods=['GET'])
 def get_question_count():
     count = get_questions_count()
     return jsonify({'total': count}), 200
