@@ -3,6 +3,11 @@ from app.models import User
 
 # 유저 생성 함수
 def create_user(name, age, gender, email):
+    # 이메일 중복 체크
+    existing_user = User.query.filter_by(email=email).first()
+    if existing_user:
+        return None  # 중복된 이메일이면 None 반환
+    
     new_user = User(name=name, age=age, gender=gender, email=email)
     db.session.add(new_user)
     db.session.commit()

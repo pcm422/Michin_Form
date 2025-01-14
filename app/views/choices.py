@@ -17,3 +17,7 @@ def get_choice_by_id(choice_id):
 def get_all_choices():
     choices = Choices.query.all()
     return choices
+
+def get_choices_by_question_id(question_id):
+    # 주어진 question_id에 해당하는 선택지들을 가져오기
+    return Choices.query.filter_by(question_id=question_id).all()

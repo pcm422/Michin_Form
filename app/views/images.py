@@ -14,3 +14,6 @@ def get_all_images() :
     images = Image.query.all()
     return images
 
+def get_main_image() :
+    image = Image.query.filter_by(type=ImageStatus.main).first()
+    return image

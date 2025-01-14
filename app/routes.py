@@ -1,12 +1,18 @@
-from flask import Blueprint, request, jsonify
+from flask import request, jsonify, session
+from flask_smorest import Blueprint
 from app import db
-from app.views.users import create_user, get_all_users, get_user_by_id, delete_user
-from app.views.questions import create_question, get_all_questions, get_question_by_id, update_question, delete_question
-from app.views.choices import create_choice, get_all_choices
-from app.views.answers import create_answer
+from app.views.users import create_user
+from app.views.questions import get_question_by_id, get_questions_count, create_question
+from app.views.choices import create_choice, get_choices_by_question_id
+from app.views.answers import create_answer, get_user_by_id, get_choice_by_id
+from app.views.images import get_main_image, create_image
 
 # 유저 관련 블루프린트
-user_bp = Blueprint('user',__name__)
+user_bp = Blueprint('Users', 'users')
+
+@user_bp.route("/")
+def hello():
+    return jsonify({"message": "Success Connect"})
 
 # 유저 생성 API (회원가입)
 @user_bp.route('/signup', methods = ['POST'])
@@ -25,61 +31,146 @@ def signup():
     
     # 유저생성함수
     new_user = create_user(name=name, age=age, gender=gender, email=email)
-    
-    # 유저정보 반환
-    return jsonify({
-        'message' : '회원 가입 성공 !',
-        'user': new_user.to_dict() # 
-    }) , 201
 
-""" 유저 조회는 관리자 기능
-# 특정 유저 조회 API   
-@user_bp.route('/users/<int:user_id>', methods = ["GET"])
-def get_user_bp(user_id):
-    user = User.query.get(user_id) # user_id로 조회
-    
-    # 유저 없을시
-    if user is None :
-        return jsonify ({'error': '유저를 찾을 수 없습니다.'}), 404
-    
-    # 유저 있으면 정보반환
-    return jsonify ({
-        'user': user.to_dict()
-    })
-    
-# 모든 유저 조회 API
-@user_bp.route('/users',methods = ["GET"])
-def get_all_users_bp():
-    users = get_all_users()
-    return jsonify ([user.to_dict() for user in users])
-"""
+    if not new_user:
+        return jsonify({'message': '이미 존재하는 계정 입니다.'}), 400
+
+    # 유저 정보 반환
+    return jsonify({
+        'message': f'{new_user.name}님 회원가입을 축하합니다',
+        'user_id': new_user.id
+    }), 201
 
 # 질문 관련 블루프린트
-questions_bp = Blueprint('questions', __name__)
+questions_bp = Blueprint('Questions', 'questions')
 
-# 질문 조회 API
-@questions_bp.route('/questions', methods=['GET'])
-def get_all_questions():
-    questions = get_all_questions()
-    return jsonify([q.to_dict() for q in questions]), 200
+# 특정 질문 조회 API
+@questions_bp.route('/questions/<int:question_id>', methods=['GET'])
+def get_question(question_id):
+    # 질문 가져오기
+    question = get_question_by_id(question_id)
+    if not question:
+        return jsonify({'error': '해당 질문을 찾을 수 없습니다.'}), 404
 
+    # 해당 질문의 선택지 가져오기 (효율적인 쿼리 사용)
+    choices = get_choices_by_question_id(question_id)  # 선택지를 직접 필터링
+    filtered_choices = [
+        {
+            'id': choice.id,
+            'content': choice.content,
+            'is_active': choice.is_active
+        } for choice in choices
+    ]
+
+    # 순서를 맞추기 위해 딕셔너리 순서대로 배치
+    response_data = {
+        'id': question.id,
+        'title': question.title,
+        'image': question.image.url if question.image else None,  # 이미지가 있을 때만 URL 반환
+        'choices': filtered_choices
+    }
+
+    return jsonify(response_data), 200
+
+# 질문 갯수 구하는 API
+@questions_bp.route('/questions/count', methods=['GET'])
+def get_question_count():
+    count = get_questions_count()
+    return jsonify({'total': count}), 200
+
+# 질문 생성 API
+@questions_bp.route('/question', methods=['POST'])
+def add_question():
+    data = request.get_json()
+
+    title = data.get('title')
+    image_id = data.get('image_id')
+    sqe = data.get('sqe')
+    is_active = data.get('is_active', True)  # 기본값 True
+
+    if not title or not image_id or not sqe:
+        return jsonify({'error': 'title, image_id, sqe는 필수입니다.'}), 400
+
+    try:
+        new_question = create_question(title, image_id, sqe, is_active)
+        return jsonify({
+            'message': f'Title: {new_question.title} question Success Create'
+        }), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 # 선택지 관련 블루프린트
-choices_bp = Blueprint('choices', __name__)
-
-# 선택지 조회 API
-@choices_bp.route('/choices', methods=['GET'])
-def get_all_choices():
-    choices = get_all_choices()
-    return jsonify([c.to_dict() for c in choices]), 200
+choices_bp = Blueprint('choice', __name__)
 
 # 선택지 생성 API
-@choices_bp.route('/choices', methods=['POST'])
-def create_choice():
+@choices_bp.route('/choice', methods=['POST'])
+def add_choice():
     data = request.get_json()
-    new_choice = create_choice(data['content'], data['question_id'], data['sqe'], data['is_active'])
-    return jsonify(new_choice.to_dict()), 201
 
+    content = data.get('content')
+    sqe = data.get('sqe')
+    question_id = data.get('question_id')
+
+    # 필수 값 체크
+    if not content or not sqe or not question_id:
+        return jsonify({'error': 'content, sqe, question_id는 필수입니다.'}), 400
+
+    try:
+        new_choice = create_choice(content, sqe, question_id)
+        return jsonify({
+            'message': f'Content: {new_choice.content} choice Success Create'
+        }), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# 질문 아이디로 선택지 조회 API
+@choices_bp.route('/choice/<int:question_id>', methods=['GET'])
+def get_choice_by_question_id(question_id):
+    # 해당 question_id에 대한 선택지들을 가져오기
+    choices = get_choices_by_question_id(question_id)
+    
+    # 선택지들을 리스트로 가공, 필요한 필드만 포함시킴
+    filtered_choices = [
+        {
+            "id": choice.id,  # id
+            "content": choice.content,  # content
+            "is_active": choice.is_active  # is_active
+        }
+        for choice in choices
+    ]
+    
+    # 선택지 리스트를 JSON 형식으로 반환
+    return jsonify({"choices": filtered_choices}), 200
+
+# 이미지 관련 블루프린트
+image_bp = Blueprint('image', __name__)
+
+# 이미지 생성 API
+@image_bp.route('/image', methods=['POST'])
+def create_image_route():
+    data = request.json  # 사용자로부터 받은 데이터
+    
+    # 데이터 값 확인
+    image_url = data.get('url')
+    image_type = data.get('type')
+    
+    if not image_url or not image_type:
+        return jsonify({'error': 'url 또는 type이 없습니다.'}), 400
+    
+    # 이미지 생성 함수 호출
+    new_image = create_image(image_url, image_type)
+    
+    # 성공 메시지 반환
+    return jsonify({'message': f'ID: {new_image.id} Image Success Create'}), 201
+
+# 메인 이미지 조회 API  
+@image_bp.route('/image/main', methods=['GET'])
+def get_image():
+    image = get_main_image()
+    if not image:
+        return jsonify({'error': 'Main image not found'}), 404
+    
+    return jsonify({'image': image.url}), 200
 
 # 답변 관련 블루프린트
 answers_bp = Blueprint('answers', __name__)
@@ -90,6 +181,37 @@ def create_answer():
     data = request.get_json()
     new_answer = create_answer(data['user_id'], data['choice_id'])
     return jsonify(new_answer.to_dict()), 201
+
+# 답변 제출 API
+@questions_bp.route('/submit', methods=['POST'])
+def submit_answers():
+    data = request.json  # 요청 바디 데이터 받기
+    
+    if not data or not isinstance(data, list):
+        return jsonify({'error': '유효하지 않은 데이터 형식입니다.'}), 400
+
+    for item in data:
+        user_id = item.get('userId')
+        choice_id = item.get('choiceId')
+        
+        if not user_id or not choice_id:
+            return jsonify({'error': 'userId와 choiceId는 필수입니다.'}), 400
+        
+        # 유저와 선택지 조회
+        user = get_user_by_id(user_id)
+        choice = get_choice_by_id(choice_id)
+        
+        if not user:
+            return jsonify({'error': f'User ID {user_id}를 찾을 수 없습니다.'}), 404
+        if not choice:
+            return jsonify({'error': f'Choice ID {choice_id}를 찾을 수 없습니다.'}), 404
+        
+        # 답변 저장 함수 호출
+        create_answer(user_id, choice_id)
+
+    return jsonify({
+        'message': f"User: {user_id}'s answers Success Create"
+    }), 201
 
 """ 관리자 기능은 일단 모양만 갖춰놓음
 # 관리자 관련 블루프린트

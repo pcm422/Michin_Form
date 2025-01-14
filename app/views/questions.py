@@ -17,3 +17,7 @@ def get_question_by_id(question_id):
 def get_all_questions():
     questions = Question.query.all()
     return questions
+
+def get_questions_count():
+    count = Question.query.count()
+    return count
