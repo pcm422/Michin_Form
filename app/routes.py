@@ -31,9 +31,13 @@ def signup():
     
     # 유저생성함수
     new_user = create_user(name=name, age=age, gender=gender, email=email)
-
-    if not new_user:
-        return jsonify({'message': '이미 존재하는 계정 입니다.'}), 400
+    try:
+        if not new_user:
+            raise ValueError('이미 존재하는 계정 입니다.')
+    except ValueError as ve:
+        return jsonify({
+        'error': '이미 존재하는 계정 입니다.'
+    }), 301
 
     # 유저 정보 반환
     return jsonify({

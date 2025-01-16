@@ -18,6 +18,9 @@ def create_app():
     api = Api(application)
     
     from app.routes import user_bp, questions_bp, image_bp, choices_bp
+    from app.stats_routes import stats_routes
+
+    api.register_blueprint(stats_routes)
     api.register_blueprint(user_bp)
     api.register_blueprint(questions_bp)
     api.register_blueprint(image_bp)
